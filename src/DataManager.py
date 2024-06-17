@@ -23,3 +23,10 @@ class DataManager():
         # else:
         xyz = self.pcd_reconstructor.create_point_cloud(scan_path)
         np.savez_compressed(f"{scan_path}data.npz", xyz=xyz)
+
+        truck_bucket = self.pcd_reconstructor.create_point_cloud(Constants.BUCKET_PATH)
+        aligned_pcd = self.registration.align_truck_bucket_and_load(xyz, truck_bucket, Parameters.VOXEL_SIZE,
+                                                                    Parameters.MAX_ITERATION_RANSAC, Parameters.CONFIDENCE,
+                                                                    Parameters.MAX_NN_NORMALS, Parameters.MAX_NN_FPFH,
+                                                                    Parameters.EPSILON, Parameters.MAX_ITERATION_ICP,
+                                                                    Parameters.RANSAC_LOOP_SIZE)

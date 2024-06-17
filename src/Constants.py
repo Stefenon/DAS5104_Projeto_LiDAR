@@ -13,6 +13,7 @@ class Constants():
     # Scans -------------------------------------------------------------------
     SCANS_DIRECTORY = "./pointcloud/"
     SCAN_DIRECTION = "ccw"
+    BUCKET_PATH = "./pointcloud/caixa_vazia"
 
     # Sensors -----------------------------------------------------------------
     SENSOR_TOP_HEIGHT = 2400
