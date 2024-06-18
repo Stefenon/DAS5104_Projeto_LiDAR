@@ -25,13 +25,11 @@ class SurfaceReconstructor():
     
     return inner_load
   
-  def point_to_ray_distance(self, point: np.ndarray, ray_origin: np.ndarray, ray_direction: np.ndarray) -> float:
-    ray_direction = ray_direction / np.linalg.norm(ray_direction)
-    origin_to_point = point - ray_origin
-    projection_length = np.dot(origin_to_point, ray_direction)
-    projection_point = ray_origin + projection_length * ray_direction
-    distance = np.linalg.norm(point - projection_point)
-    return distance
+  def point_to_line_distance(points, origin, direction):
+    point_vecs = points - origin
+    cross_prods = np.cross(direction, point_vecs)
+    distances = np.linalg.norm(cross_prods, axis=1) / np.linalg.norm(direction)
+    return distances
   
   def find_points_near_ray(self, load: o3d.geometry.PointCloud, bucket: o3d.geometry.PointCloud, ray_origin: list,
                            ray_direction: np.ndarray, detection_threshold: float):
@@ -62,7 +60,7 @@ class SurfaceReconstructor():
                                    detection_threshold: float, distance_threshold: float, angular_step: float,
                                    slope:float) -> o3d.geometry.PointCloud:
     # Define the ray origin and direction
-    ray_origins = np.array([np.array([11.5, 1000, -1800]), np.array([11.5, 800, -1300]), np.array([11.5, 800, -2300])])
+    ray_origins = [np.array([11.5, 1000, -1800]), np.array([11.5, 800, -1300]), np.array([11.5, 800, -2300])]
     rays = []
 
     rays += self.generate_rays_with_slope(angular_step, slope, radius=50)
@@ -71,15 +69,34 @@ class SurfaceReconstructor():
     rays += self.generate_rays_with_slope(angular_step, slope, radius=500)
     near_points = []
 
-    # Find points near the ray
-    for ray_origin in ray_origins:
-        for ray_direction in rays:
-            near_points += self.find_points_near_ray(load, bucket, ray_origin, ray_direction, detection_threshold)
-        
+    # Get direction as unit vector of each ray
+    directions = [ray / np.linalg.norm(ray) for ray in rays]
+    threshold = 20
+
+    bucket_points = np.asarray(bucket.points)
+    inner_load_points = np.asarray(load.points)
+
+    # Iterate over each direction to find the lines that meet the threshold criteria
+    valid_lines = []
+    for origin in ray_origins:
+        for direction in directions:
+            bucket_distances = self.point_to_line_distance(bucket_points, origin, direction)
+            load_distances = self.point_to_line_distance(inner_load_points, origin, direction)
+            
+            if np.any(bucket_distances < detection_threshold) and np.any(load_distances < detection_threshold):
+                valid_lines.append(direction)
+                
+    near_points = []
+    for origin in ray_origins:
+        for direction in valid_lines:
+            bucket_distances = self.point_to_line_distance(bucket.points, origin, direction)
+            close_points = bucket_points[np.where(bucket_distances < detection_threshold)]
+            near_points.extend(close_points)
+
     near_pcd = o3d.geometry.PointCloud()
     near_pcd.points = o3d.utility.Vector3dVector(near_points)
     kd_tree = o3d.geometry.KDTreeFlann(near_pcd)
-    inner_bucket_points = np.array()
+    inner_bucket_points = []
 
     for point in bucket.points:
         [_, idx, _] = kd_tree.search_knn_vector_3d(point, 1)
