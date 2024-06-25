@@ -5,7 +5,7 @@ from src.PointCloudReconstructor import PointCloudReconstructor
 from src.VolumeCalculator import VolumeCalculator
 from src.PointCloudPlotter import PointCloudPlotter
 from src.Registration import Registration
-from src.SurfaceRecontructor import SurfaceReconstructor
+from SurfaceReconstructor import SurfaceReconstructor
 from src.Constants import Constants
 from src.Parameters import Parameters
 
@@ -48,9 +48,9 @@ class DataManager():
                                                                            Parameters.MergePoints.DETECTION_THRESHOLD,
                                                                            Parameters.MergePoints.DISTANCE_THRESHOLD,
                                                                            Parameters.MergePoints.ANGULAR_STEP,
-                                                                           Parameters.MergePoints.SLOPE)
+                                                                           Parameters.MergePoints.SLOPE,
+                                                                           Parameters.MergePoints.NB_NEIGHBORS,
+                                                                           Parameters.MergePoints.STD_RATIO)
         
-        load_mesh = self.surface_reconstructor.reconstruct_load_mesh(full_pcd, Parameters.MeshReconstruction.RADIUS,
-                                                                     Parameters.MeshReconstruction.MAX_NN,
-                                                                     Parameters.MeshReconstruction.GRAPH_KNN,
+        load_mesh = self.surface_reconstructor.reconstruct_load_mesh(full_pcd, Parameters.MeshReconstruction.ALPHA,
                                                                      Parameters.MeshReconstruction.N_FILTER_ITERATIONS)

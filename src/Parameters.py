@@ -24,9 +24,9 @@ class Parameters():
     DETECTION_THRESHOLD = 20
     ANGULAR_STEP = 25
     SLOPE = 500
+    NB_NEIGHBORS = 10
+    STD_RATIO = 20
     
   class MeshReconstruction():
-    RADIUS = 100
-    MAX_NN = 100
-    GRAPH_KNN = 5
-    N_FILTER_ITERATIONS = 1
+    ALPHA = 150
+    N_FILTER_ITERATIONS = 5

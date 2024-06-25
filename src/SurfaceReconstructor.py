@@ -56,11 +56,40 @@ class SurfaceReconstructor():
           rays.append(direction)
       return rays
 
+  def get_max_coordinate_in_plane(points, section, plane='xy', max_axis='y', tolerance=10):
+    fixed_axis_idx = 2 if plane == 'xy' else 1 if plane == 'xz' else 0
+    max_axis_idx = 0 if max_axis == 'x' else 1 if max_axis == 'y' else 2
+    plane_coords = [p[max_axis_idx] for p in points if (section - tolerance) < p[fixed_axis_idx] < (section + tolerance)]
+    
+    return max(plane_coords)
+
+  def get_min_coordinates(points):
+    return min(points, key=lambda p: p[0])[0], min(points, key=lambda p: p[1])[1], min(points, key=lambda p: p[2])[2]
+
+  def get_max_coordinates(poitns):
+    return max(poitns, key=lambda p: p[0])[0], max(poitns, key=lambda p: p[1])[1], max(poitns, key=lambda p: p[2])[2]
+
   def merge_load_and_bucket_points(self, bucket: o3d.geometry.PointCloud, load: o3d.geometry.PointCloud,
                                    detection_threshold: float, distance_threshold: float, angular_step: float,
-                                   slope:float) -> o3d.geometry.PointCloud:
+                                   slope:float, nb_neighbors: int, std_ratio: float) -> o3d.geometry.PointCloud:
     # Define the ray origin and direction
-    ray_origins = [np.array([11.5, 1000, -1800]), np.array([11.5, 800, -1300]), np.array([11.5, 800, -2300])]
+    min_x, _, min_z = self.get_min_coordinates(inner_load_points)
+    max_x, _, max_z = self.get_max_coordinates(inner_load_points)
+    center_x = (min_x + max_x) / 2
+
+    delta_z = max_z - min_z
+    lower_z = min_z + delta_z*0.15
+    center_z = (min_z + max_z) / 2
+    upper_z = max_z - delta_z*0.15
+
+    lower_y = self.get_max_coordinate_in_plane(inner_load_points, lower_z, 'xy', 'y', 10)*1.2
+    center_y = self.get_max_coordinate_in_plane(inner_load_points, center_z, 'xy', 'y', 10)*1.2
+    upper_y = self.get_max_coordinate_in_plane(inner_load_points, upper_z, 'xy', 'y', 10)*1.2
+
+    ray_origins = [
+    np.array([center_x, lower_y, lower_z]),
+    np.array([center_x, center_y, center_z]),
+    np.array([center_x, upper_y, upper_z])]
     rays = []
 
     rays += self.generate_rays_with_slope(angular_step, slope, radius=50)
@@ -71,7 +100,6 @@ class SurfaceReconstructor():
 
     # Get direction as unit vector of each ray
     directions = [ray / np.linalg.norm(ray) for ray in rays]
-    threshold = 20
 
     bucket_points = np.asarray(bucket.points)
     inner_load_points = np.asarray(load.points)
@@ -107,22 +135,19 @@ class SurfaceReconstructor():
     points = np.concatentate((np.asarray(inner_bucket_points), np.asarray(load.points)))
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
+    pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=nb_neighbors, std_ratio=std_ratio)
     
     return pcd
     
-  def reconstruct_load_mesh(self, load: o3d.geometry.PointCloud, radius: float, max_nn: int, graph_knn: int,
+  def reconstruct_load_mesh(self, load: o3d.geometry.PointCloud, alpha: float,
                             n_filter_iterations: int) -> o3d.geometry.TriangleMesh:
-
-    load.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=max_nn))
-    load.orient_normals_consistent_tangent_plane(graph_knn)
-    
-    mesh, _ = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(load)
+    mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(load, alpha)
     bbox = load.get_axis_aligned_bounding_box()
     mesh = mesh.crop(bbox)
 
     # Refine the mesh
     mesh = mesh.filter_smooth_simple(number_of_iterations=n_filter_iterations)
+    mesh.paint_uniform_color([0.7, 0.7, 0.7])
+    mesh.compute_triangle_normals()
 
-    # Save and visualize the mesh
-    o3d.io.write_triangle_mesh("load.ply", mesh)
     return mesh
